@@ -30,7 +30,6 @@ knife4j:
     version: v1.0
     group:
       default:
-        group-name: 默认分组名称
         api-rule: package
         api-rule-resources:
           - com.gs.gpicturebackend.controller

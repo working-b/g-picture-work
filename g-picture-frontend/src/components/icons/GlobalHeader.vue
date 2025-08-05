@@ -10,7 +10,7 @@
     </a-col>
     <a-col flex="auto">
       <div id="globalHeader" >
-        <a-menu v-model:selectedKeys="current" mode="horizontal" :items="items" />
+        <a-menu v-model:selectedKeys="current" mode="horizontal" :items="items" @click="doMenuClick"/>
       </div>
     </a-col>
     <a-col flex="120px">
@@ -20,21 +20,13 @@
     </a-col>
   </a-row>
 
-
-  <div id="globalHeader" >
-    <a-menu v-model:selectedKeys="current" mode="horizontal" :items="items" />
-  </div>
-  <div class="user-login-status">
-    <a-button type="primary" href="/user/login">登录</a-button>
-  </div>
-
 </template>
 <script lang="ts" setup>
 import { h, ref } from 'vue'
 import { HomeOutlined } from '@ant-design/icons-vue'
 import { MenuProps } from 'ant-design-vue'
+import { useRouter } from 'vue-router'
 
-const current = ref<string[]>(['home'])
 const items = ref<MenuProps['items']>([
   {
     key: '/',
@@ -52,7 +44,20 @@ const items = ref<MenuProps['items']>([
     label: h('a', { href: 'https://www.codefather.cn', target: '_blank' }, '编程导航'),
     title: '编程导航',
   },
-])
+]);
+
+const router = useRouter();
+// 路由跳转事件
+const doMenuClick = ({ key }) => {
+  router.push({
+    path: key
+  });
+}
+// 更新菜单栏高亮
+const current = ref<string[]>(['home'])
+router.afterEach((to,from,next)=>{
+  current.value = [to.path]
+})
 </script>
 <style scoped>
 .title-bar {

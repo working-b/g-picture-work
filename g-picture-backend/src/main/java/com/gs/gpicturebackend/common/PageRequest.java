@@ -1,0 +1,26 @@
+package com.gs.gpicturebackend.common;
+
+/**
+ * @Author: hzt
+ * @CreateTime: 2025-08-05  11:17
+ * @Description: 分页请求类
+ * @Version: 1.0
+ */
+public class PageRequest {
+    /**
+     * 页码
+     */
+    private int pageNum;
+    /**
+     * 每页大小
+     */
+    private int pageSize;
+    /**
+     * 排序字段
+     */
+    private String sortField;
+    /**
+     * 排序顺序
+     */
+    private String sortOrder;
+}

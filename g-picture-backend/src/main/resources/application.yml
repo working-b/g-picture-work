@@ -24,10 +24,8 @@ mybatis-plus:
 knife4j:
   enable: true
   openapi:
-    title: Knife4j官方文档
-    description: "`我是测试`,**你知道吗**
-    # aaa"
-    version: v1.0
+    title: 接口文档
+    version: 1.0
     group:
       default:
         api-rule: package

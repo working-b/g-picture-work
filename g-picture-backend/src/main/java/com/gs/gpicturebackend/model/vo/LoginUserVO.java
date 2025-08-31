@@ -11,7 +11,7 @@ import java.util.Date;
  * @Version: 1.0
  */
 @Data
-public class LoginUserVo {
+public class LoginUserVO {
     /**
      * 账号
      */

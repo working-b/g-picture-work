@@ -1,24 +1,30 @@
 package com.gs.gpicturebackend.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gs.gpicturebackend.constant.UserConstant;
 import com.gs.gpicturebackend.exception.BusinessException;
 import com.gs.gpicturebackend.exception.ErrorCode;
+import com.gs.gpicturebackend.model.dto.user.UserQueryRequest;
 import com.gs.gpicturebackend.model.entity.User;
 import com.gs.gpicturebackend.mapper.UserMapper;
 import com.gs.gpicturebackend.model.enums.UserRoleEnum;
-import com.gs.gpicturebackend.model.vo.LoginUserVo;
+import com.gs.gpicturebackend.model.vo.LoginUserVO;
+import com.gs.gpicturebackend.model.vo.UserVO;
 import com.gs.gpicturebackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
-import org.springframework.web.context.request.RequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
 * @author hanzhongtao
@@ -72,7 +78,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public LoginUserVo login(String userAccount, String userPassword, HttpServletRequest request) {
+    public LoginUserVO login(String userAccount, String userPassword, HttpServletRequest request) {
         // 1.校验参数
         if (StrUtil.hasBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
@@ -97,9 +103,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE,user);
 
         // 5. 用户脱敏
-        LoginUserVo loginUserVo = new LoginUserVo();
-        BeanUtil.copyProperties(user, loginUserVo);
-        return loginUserVo;
+        LoginUserVO loginUserVO = new LoginUserVO();
+        BeanUtil.copyProperties(user, loginUserVO);
+        return loginUserVO;
     }
 
     @Override
@@ -127,6 +133,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public UserVO getUserVO(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserVO UserVO = new UserVO();
+        BeanUtil.copyProperties(user, UserVO);
+        return UserVO;
+    }
+
+    @Override
+    public List<UserVO> getUserVOList(List<User> userList) {
+        if (CollectionUtil.isEmpty(userList)) {
+            return new ArrayList<>();
+        }
+        return userList.stream().map(this::getUserVO).collect(Collectors.toList());
+    }
+
+    @Override
     public String getEncryptPassword(String userPassword) {
         // 加盐，混淆密码
         final String SALT = "gshhh_1";
@@ -140,6 +164,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未登录");
         }
         request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+    }
+
+
+    @Override
+    public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
+        if (userQueryRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        Long id = userQueryRequest.getId();
+        String userName = userQueryRequest.getUserName();
+        String userAccount = userQueryRequest.getUserAccount();
+        String userProfile = userQueryRequest.getUserProfile();
+        String sortField = userQueryRequest.getSortField();
+        String sortOrder = userQueryRequest.getSortOrder();
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq(ObjUtil.isNotNull(id), "id", id);
+        queryWrapper.like(StrUtil.isNotBlank(userAccount), "userAccount", userAccount);
+        queryWrapper.like(StrUtil.isNotBlank(userName), "userName", userName);
+        queryWrapper.like(StrUtil.isNotBlank(userProfile), "userProfile", userProfile);
+        queryWrapper.orderBy(StrUtil.isNotEmpty(sortField), sortOrder.equals("ascend"), sortField);
+        return queryWrapper;
     }
 
 

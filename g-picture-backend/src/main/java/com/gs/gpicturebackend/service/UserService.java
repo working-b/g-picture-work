@@ -1,10 +1,14 @@
 package com.gs.gpicturebackend.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.gs.gpicturebackend.model.dto.user.UserQueryRequest;
 import com.gs.gpicturebackend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.gs.gpicturebackend.model.vo.LoginUserVo;
+import com.gs.gpicturebackend.model.vo.LoginUserVO;
+import com.gs.gpicturebackend.model.vo.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
 * @author hanzhongtao
@@ -29,7 +33,7 @@ public interface UserService extends IService<User> {
      * @param request
      * @return
      */
-    LoginUserVo login(String userAccount, String userPassword, HttpServletRequest request);
+    LoginUserVO login(String userAccount, String userPassword, HttpServletRequest request);
 
     /**
      * 获取当前登录用户
@@ -37,6 +41,11 @@ public interface UserService extends IService<User> {
      * @return
      */
     User getLoginUser(HttpServletRequest request);
+
+    UserVO getUserVO(User user);
+
+    List<UserVO> getUserVOList(List<User> userList);
+
     /**
      * 获取加密后的密码
      * @param userPassword
@@ -50,4 +59,11 @@ public interface UserService extends IService<User> {
      * @return
      */
     void logout(HttpServletRequest request);
-}
+
+    /**
+     * 获取查询条件
+     * @param userQueryRequest
+     * @return
+     */
+    QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
+ }

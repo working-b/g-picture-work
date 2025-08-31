@@ -10,13 +10,13 @@ import java.util.Date;
 import lombok.Data;
 
 /**
- * 用户
- * @TableName user
+ * 图片
+ * @TableName picture
  */
-@TableName(value ="user")
+@TableName(value ="picture")
 @Data
-public class User implements Serializable {
-    private static final long serialVersionUID = -3888056236009917669L;
+public class Picture implements Serializable {
+    private static final long serialVersionUID = 5572000322100540684L;
     /**
      * id
      */
@@ -24,59 +24,69 @@ public class User implements Serializable {
     private Long id;
 
     /**
-     * 账号
+     * 图片 url
      */
-    private String userAccount;
+    private String url;
 
     /**
-     * 密码
+     * 图片名称
      */
-    private String userPassword;
+    private String name;
 
     /**
-     * 用户昵称
+     * 简介
      */
-    private String userName;
+    private String introduction;
 
     /**
-     * 用户头像
+     * 分类
      */
-    private String userAvatar;
+    private String category;
 
     /**
-     * 用户简介
+     * 标签（JSON 数组）
      */
-    private String userProfile;
+    private String tags;
 
     /**
-     * 用户角色：user/admin
+     * 图片体积
      */
-    private String userRole;
+    private Long picSize;
 
     /**
-     * 会员过期时间
+     * 图片宽度
      */
-    private Date vipExpireTime;
+    private Integer picWidth;
 
     /**
-     * 会员兑换码
+     * 图片高度
      */
-    private String vipCode;
+    private Integer picHeight;
 
     /**
-     * 会员编号
+     * 图片宽高比例
      */
-    private Long vipNumber;
+    private Double picScale;
 
     /**
-     * 编辑时间
+     * 图片格式
      */
-    private Date editTime;
+    private String picFormat;
+
+    /**
+     * 创建用户 id
+     */
+    private Long userId;
 
     /**
      * 创建时间
      */
     private Date createTime;
+
+    /**
+     * 编辑时间
+     */
+    private Date editTime;
 
     /**
      * 更新时间

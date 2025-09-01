@@ -12,6 +12,9 @@ spring:
     password: 12345678
   profiles:
     active: local
+  servlet:
+    multipart:
+      max-file-size: 10MB
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

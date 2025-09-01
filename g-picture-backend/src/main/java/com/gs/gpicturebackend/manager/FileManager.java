@@ -60,7 +60,7 @@ public class FileManager {
             // 将文件写入临时文件
             file.transferTo(tmpFile);
             // 上传到cos
-            PutObjectResult putObjectResult = cosManager.putObject(filePath, tmpFile);
+            PutObjectResult putObjectResult = cosManager.putPictureObject(filePath, tmpFile);
             // 处理上传返回结果
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
             UploadPictureResult result = new UploadPictureResult();

@@ -1,3 +1,7 @@
 1.UserService.getQueryWrapper()方法
 2.PictureService.getQueryWrapper()方法
 3.Picture的各种request类；
+
+
+
+!! 图片的url会不会不安全（PictureVO），用的是云存储的url

@@ -11,9 +11,11 @@ import com.gs.gpicturebackend.exception.ThrowUtils;
 import com.gs.gpicturebackend.manager.FileManager;
 import com.gs.gpicturebackend.model.dto.file.UploadPictureResult;
 import com.gs.gpicturebackend.model.dto.picture.PictureQueryRequest;
+import com.gs.gpicturebackend.model.dto.picture.PictureReviewRequest;
 import com.gs.gpicturebackend.model.dto.picture.PictureUploadRequest;
 import com.gs.gpicturebackend.model.entity.Picture;
 import com.gs.gpicturebackend.model.entity.User;
+import com.gs.gpicturebackend.model.enums.PictureReviewStatusEnum;
 import com.gs.gpicturebackend.model.vo.PictureVO;
 import com.gs.gpicturebackend.model.vo.UserVO;
 import com.gs.gpicturebackend.service.PictureService;
@@ -55,8 +57,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         //  更新:设置id和编辑时间
         if (request != null && request.getId() != null) {
             Long id = request.getId();
-            boolean exists = this.lambdaQuery().eq(Picture::getId, id).exists();
-            ThrowUtils.throwIf(!exists, ErrorCode.PARAMS_ERROR, "图片不存在");
+            Picture oldPic = this.getById(id);
+            ThrowUtils.throwIf(oldPic == null, ErrorCode.PARAMS_ERROR, "图片不存在");
+
+            // 仅本人和管理员可编辑图片
+            Long oldPicUserId = oldPic.getUserId();
+            ThrowUtils.throwIf(!oldPicUserId.equals(user.getId()) && !userService.isAdmin(user), ErrorCode.NOT_AUTH_ERROR, "无权限编辑图片");
             picture.setId(id);
             picture.setEditTime(new Date());
         }
@@ -74,6 +80,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setPicWidth(uploadPictureResult.getPicWidth());
         picture.setPicHeight(uploadPictureResult.getPicHeight());
         picture.setUserId(user.getId());
+        // 补充审核参数
+        fillReviewParam(picture,user);
         boolean b = this.saveOrUpdate(picture);
         ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR, "数据库保存失败");
         return PictureVO.objToVo(picture);
@@ -191,6 +199,35 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         return pictureVOPage;
     }
 
+    @Override
+    public void doPictureReview(PictureReviewRequest pictureReviewRequest, User user) {
+        // 1. 参数校验
+        ThrowUtils.throwIf(pictureReviewRequest == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
+        Long id = pictureReviewRequest.getId();
+        Integer reviewStatus = pictureReviewRequest.getReviewStatus();
+        PictureReviewStatusEnum enumByValue = PictureReviewStatusEnum.getEnumByValue(reviewStatus);
+        String reviewMessage = pictureReviewRequest.getReviewMessage();
+        ThrowUtils.throwIf(id == null || reviewStatus == null || enumByValue == null || PictureReviewStatusEnum.REVIEWING.equals(enumByValue),
+                ErrorCode.PARAMS_ERROR, "参数不能为空");
+
+        // 2. 权限校验
+        ThrowUtils.throwIf(!userService.isAdmin(user), ErrorCode.NOT_AUTH_ERROR, "没有审核权限");
+        // 3. 查询是否存在图片、是否状态重复
+        Picture oldPic = this.getById(id);
+        ThrowUtils.throwIf(oldPic == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
+        ThrowUtils.throwIf(reviewStatus.equals(oldPic.getReviewStatus()), ErrorCode.PARAMS_ERROR, "请勿重复审核");
+
+        // 4. 更新图片状态
+        Picture picture = new Picture();
+        picture.setId(id);
+        picture.setReviewStatus(reviewStatus);
+        picture.setReviewMessage(reviewMessage);
+        picture.setReviewerId(user.getId());
+        picture.setReviewTime(new Date());
+        boolean b = this.updateById(picture);
+        ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "审核失败");
+    }
+
 
     @Override
     public void validPicture(Picture picture) {
@@ -210,6 +247,22 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
     }
 
+    @Override
+    public void fillReviewParam(Picture picture, User operator) {
+        if (picture == null || operator == null) {
+            return;
+        }
+        if (userService.isAdmin(operator)) {
+            // 管理员自动过审
+            picture.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            picture.setReviewTime(new Date());
+            picture.setReviewerId(operator.getId());
+            picture.setReviewMessage("管理员自动过审");
+        }else {
+            // 非管理员
+            picture.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
+        }
+    }
 }
 
 

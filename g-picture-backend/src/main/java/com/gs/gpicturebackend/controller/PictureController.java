@@ -10,12 +10,10 @@ import com.gs.gpicturebackend.constant.UserConstant;
 import com.gs.gpicturebackend.exception.BusinessException;
 import com.gs.gpicturebackend.exception.ErrorCode;
 import com.gs.gpicturebackend.exception.ThrowUtils;
-import com.gs.gpicturebackend.model.dto.picture.PictureEditRequest;
-import com.gs.gpicturebackend.model.dto.picture.PictureQueryRequest;
-import com.gs.gpicturebackend.model.dto.picture.PictureUpdateRequest;
-import com.gs.gpicturebackend.model.dto.picture.PictureUploadRequest;
+import com.gs.gpicturebackend.model.dto.picture.*;
 import com.gs.gpicturebackend.model.entity.Picture;
 import com.gs.gpicturebackend.model.entity.User;
+import com.gs.gpicturebackend.model.enums.PictureReviewStatusEnum;
 import com.gs.gpicturebackend.model.vo.PictureTagCategory;
 import com.gs.gpicturebackend.model.vo.PictureVO;
 import com.gs.gpicturebackend.service.PictureService;
@@ -99,6 +97,8 @@ public class PictureController {
         // 获取图片
         Picture byId = pictureService.getById(pictureUpdateRequest.getId());
         ThrowUtils.throwIf(byId == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
+        // 补充审核参数
+        pictureService.fillReviewParam(picture, loginUser);
         // 更新
         boolean b = pictureService.updateById(picture);
         ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "更新失败");
@@ -129,9 +129,16 @@ public class PictureController {
     @GetMapping("/get/vo")
     public BaseResponse<PictureVO> getPictureVO(@RequestParam("id") Long id,HttpServletRequest request){
         ThrowUtils.throwIf(id == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
-        Picture byId = pictureService.getById(id);
-        ThrowUtils.throwIf(byId == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
-        PictureVO pictureVO = pictureService.getPictureVO(byId, request);
+        Picture picture = pictureService.getById(id);
+        ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
+        // 用户只能看到自己的非过审图片
+        PictureReviewStatusEnum pictureReviewStatus = PictureReviewStatusEnum.getEnumByValue(picture.getReviewStatus());
+        if (pictureReviewStatus != null && (!pictureReviewStatus.equals(PictureReviewStatusEnum.PASS))
+                && !picture.getUserId().equals(userService.getLoginUser(request).getId())){
+            throw new RuntimeException("无权限访问");
+        }
+
+        PictureVO pictureVO = pictureService.getPictureVO(picture, request);
         return ResultUtils.success(pictureVO);
     }
 
@@ -141,7 +148,7 @@ public class PictureController {
      * @param request
      * @return
      */
-    @GetMapping("/list")
+    @GetMapping("/list/page")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Page<Picture>> listPicture(PictureQueryRequest pictureQueryRequest, HttpServletRequest request){
         int pageNum = pictureQueryRequest.getPageNum();
@@ -156,12 +163,14 @@ public class PictureController {
      * @param request
      * @return
      */
-    @GetMapping("/list/vo")
+    @GetMapping("/list/page/vo")
     public BaseResponse<Page<PictureVO>> listPictureVO(PictureQueryRequest pictureQueryRequest, HttpServletRequest request){
         int pageNum = pictureQueryRequest.getPageNum();
         int pageSize = pictureQueryRequest.getPageSize();
         // 防爬虫
         ThrowUtils.throwIf(pageNum < 0 || pageSize > 20, ErrorCode.PARAMS_ERROR, "参数错误");
+        // 普通用户只能看到审核通过数据
+        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         Page<Picture> picturePage = pictureService.page(new Page<Picture>(pageNum, pageSize), pictureService.getQueryWrapper(pictureQueryRequest));
         return ResultUtils.success(pictureService.getPictureVOPage(picturePage, request));
     }
@@ -193,13 +202,18 @@ public class PictureController {
 
         // 校验图片
         pictureService.validPicture(picture);
-
+        // 补充审核参数
+        pictureService.fillReviewParam(picture, loginUser);
         // 更新
         boolean b = pictureService.updateById(picture);
         ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "更新失败");
         return ResultUtils.success(true);
     }
 
+    /**
+     * 图片标签
+     * @return
+     */
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
         PictureTagCategory pictureTagCategory = new PictureTagCategory();
@@ -208,5 +222,20 @@ public class PictureController {
         pictureTagCategory.setTagList(tagList);
         pictureTagCategory.setCategoryList(categoryList);
         return ResultUtils.success(pictureTagCategory);
+    }
+
+    /**
+     * 图片审核
+     * @param pictureReviewRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/review")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> reviewPicture(@RequestBody PictureReviewRequest pictureReviewRequest, HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(pictureReviewRequest == null || pictureReviewRequest.getId() == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
+        pictureService.doPictureReview(pictureReviewRequest, loginUser);
+        return ResultUtils.success(true);
     }
 }

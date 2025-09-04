@@ -3,6 +3,7 @@ package com.gs.gpicturebackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gs.gpicturebackend.model.dto.picture.PictureQueryRequest;
+import com.gs.gpicturebackend.model.dto.picture.PictureReviewRequest;
 import com.gs.gpicturebackend.model.dto.picture.PictureUploadRequest;
 import com.gs.gpicturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -60,4 +61,17 @@ public interface PictureService extends IService<Picture> {
      */
     Page<PictureVO> getPictureVOPage(Page<Picture> picturePage, HttpServletRequest request);
 
+    /**
+     * 审核图片
+     * @param pictureReviewRequest
+     * @param user
+     */
+    void doPictureReview(PictureReviewRequest pictureReviewRequest, User user);
+
+    /**
+     * 填充审核参数
+     * @param picture
+     * @param operator
+     */
+    void fillReviewParam(Picture picture, User operator);
 }

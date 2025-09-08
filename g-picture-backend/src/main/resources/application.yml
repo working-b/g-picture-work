@@ -24,6 +24,10 @@ mybatis-plus:
       logic-delete-field: isDelete
       logic-delete-value: 1
       logic-not-delete-value: 0
+logging:
+  level:
+    com.baomidou.mybatisplus: debug
+    com.gs.gpicturebackend.mapper: debug
 
 # knife4j接口文档配置
 knife4j:

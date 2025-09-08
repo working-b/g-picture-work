@@ -127,7 +127,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果追求一致性，不在乎性能，可以再从sql中查询一次；
         currentUser = this.baseMapper.selectById(currentUser.getId());
         if (currentUser == null){
-            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"用户不存在");
         }
         return currentUser;
     }

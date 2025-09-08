@@ -44,15 +44,33 @@ public class PictureController {
     @Resource
     private PictureService pictureService;
 
-    @RequestMapping(value = "/upload",headers = "content-type=multipart/form-data")
+    @PostMapping(value = "/upload",headers = "content-type=multipart/form-data")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file")MultipartFile multipartFile,
-                                      PictureUploadRequest pictureUploadRequest,
-                                      HttpServletRequest request){
+                                                 PictureUploadRequest pictureUploadRequest,
+                                                 HttpServletRequest request){
         // 获取用户
         User loginUser = userService.getLoginUser(request);
 
         PictureVO pictureVO = pictureService.uploadPicture(multipartFile, pictureUploadRequest, loginUser);
+        return ResultUtils.success(pictureVO);
+    }
+
+    /**
+     * 根据url上传图片
+     * @param pictureUploadRequest
+     * @param request
+     * @return
+     */
+    @PostMapping(value = "/upload/url")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<PictureVO> uploadPictureByUrl(@RequestBody PictureUploadRequest pictureUploadRequest,
+                                                 HttpServletRequest request){
+        // 获取用户
+        User loginUser = userService.getLoginUser(request);
+
+        String fileUrl = pictureUploadRequest.getFileUrl();
+        PictureVO pictureVO = pictureService.uploadPicture(fileUrl, pictureUploadRequest, loginUser);
         return ResultUtils.success(pictureVO);
     }
 
@@ -237,5 +255,22 @@ public class PictureController {
         ThrowUtils.throwIf(pictureReviewRequest == null || pictureReviewRequest.getId() == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
         pictureService.doPictureReview(pictureReviewRequest, loginUser);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 批量上传图片
+     * @param pictureUploadByBatchRequest
+     * @param request
+     * @return
+     */
+    @PostMapping(value = "/upload/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Integer> uploadPictureByBatch(@RequestBody PictureUploadByBatchRequest pictureUploadByBatchRequest,
+                                                      HttpServletRequest request){
+        ThrowUtils.throwIf(pictureUploadByBatchRequest == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
+        // 获取用户
+        User loginUser = userService.getLoginUser(request);
+        Integer i = pictureService.uploadPictureByBatch(pictureUploadByBatchRequest, loginUser);
+        return ResultUtils.success(i);
     }
 }

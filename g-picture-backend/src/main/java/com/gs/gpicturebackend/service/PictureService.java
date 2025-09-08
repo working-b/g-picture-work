@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gs.gpicturebackend.model.dto.picture.PictureQueryRequest;
 import com.gs.gpicturebackend.model.dto.picture.PictureReviewRequest;
+import com.gs.gpicturebackend.model.dto.picture.PictureUploadByBatchRequest;
 import com.gs.gpicturebackend.model.dto.picture.PictureUploadRequest;
 import com.gs.gpicturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -29,11 +30,11 @@ public interface PictureService extends IService<Picture> {
 
     /**
      * 上传图片
-     * @param multipartFile
+     * @param inputSource
      * @param user
      * @return
      */
-    PictureVO uploadPicture(MultipartFile multipartFile, PictureUploadRequest request, User user);
+    PictureVO uploadPicture(Object inputSource, PictureUploadRequest request, User user);
 
     /**
      * 获取查询对象
@@ -74,4 +75,12 @@ public interface PictureService extends IService<Picture> {
      * @param operator
      */
     void fillReviewParam(Picture picture, User operator);
+
+    /**
+     * 批量上传图片
+     * @param request
+     * @param user
+     * @return
+     */
+    Integer uploadPictureByBatch(PictureUploadByBatchRequest request, User user);
 }

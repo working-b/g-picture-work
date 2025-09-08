@@ -51,7 +51,7 @@ public class AuthInterceptor {
         ThrowUtils.throwIf(userRole == null, ErrorCode.NOT_AUTH_ERROR);
 
         // 用户不是admin，但是要求是admin
-        if (UserRoleEnum.ADMIN.getValue().equals(mustRole) && !UserRoleEnum.USER.getValue().equals(userRole.getValue())) {
+        if (UserRoleEnum.ADMIN.getValue().equals(mustRole) && !UserRoleEnum.ADMIN.getValue().equals(userRole.getValue())) {
             throw new BusinessException(ErrorCode.NOT_AUTH_ERROR, "用户权限不足");
         }
 

@@ -1,5 +1,8 @@
 package com.gs.gpicturebackend.controller;
 
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gs.gpicturebackend.annotation.AuthCheck;
@@ -19,6 +22,11 @@ import com.gs.gpicturebackend.model.vo.PictureVO;
 import com.gs.gpicturebackend.service.PictureService;
 import com.gs.gpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,6 +35,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Author: hzt
@@ -43,6 +53,11 @@ public class PictureController {
 
     @Resource
     private PictureService pictureService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+    @Autowired
+    private RedisTemplate<Object, Object> redisTemplate;
 
     @PostMapping(value = "/upload",headers = "content-type=multipart/form-data")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
@@ -89,6 +104,8 @@ public class PictureController {
         }
         boolean b = pictureService.removeById(deleteRequest.getId());
         ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "删除失败");
+        // 删除图片
+        pictureService.clearPictureFile(byId);
         return ResultUtils.success(true);
     }
 
@@ -182,7 +199,7 @@ public class PictureController {
      * @return
      */
     @GetMapping("/list/page/vo")
-    public BaseResponse<Page<PictureVO>> listPictureVO(PictureQueryRequest pictureQueryRequest, HttpServletRequest request){
+    public BaseResponse<Page<PictureVO>> listPictureVOByPage(PictureQueryRequest pictureQueryRequest, HttpServletRequest request){
         int pageNum = pictureQueryRequest.getPageNum();
         int pageSize = pictureQueryRequest.getPageSize();
         // 防爬虫
@@ -190,6 +207,43 @@ public class PictureController {
         // 普通用户只能看到审核通过数据
         pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         Page<Picture> picturePage = pictureService.page(new Page<Picture>(pageNum, pageSize), pictureService.getQueryWrapper(pictureQueryRequest));
+        return ResultUtils.success(pictureService.getPictureVOPage(picturePage, request));
+    }
+
+    /**
+     * 分页从缓存查询脱敏图片信息
+     * @param pictureQueryRequest
+     * @param request
+     * @return
+     */
+    @GetMapping("/list/page/vo/cache")
+    public BaseResponse<Page<PictureVO>> listPictureVOByPageWithCache(PictureQueryRequest pictureQueryRequest, HttpServletRequest request){
+        int pageNum = pictureQueryRequest.getPageNum();
+        int pageSize = pictureQueryRequest.getPageSize();
+        // 防爬虫
+        ThrowUtils.throwIf(pageNum < 0 || pageSize > 20, ErrorCode.PARAMS_ERROR, "参数错误");
+        // 普通用户只能看到审核通过数据
+        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+        // 如果PictureQueryRequest字段过多、且redis内存不多，不建议下面方法，模糊查询导致内存占用过多
+        // 格式化缓存key
+        String queryCondition = JSONUtil.toJsonStr(pictureQueryRequest);
+        String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
+        String cacheKey =  String.format("g-picture:listPictureVOByPage:%s",hashKey);
+        // 查询缓存
+        ValueOperations<String, String> stringStringValueOperations = stringRedisTemplate.opsForValue();
+        String cachedValue = stringStringValueOperations.get(cacheKey);
+        if (StrUtil.isNotBlank(cachedValue)){
+            Page<PictureVO> cachedPage = JSONUtil.toBean(cachedValue, Page.class);
+            return ResultUtils.success(cachedPage);
+        }
+
+        // 缓存不存在，查询数据库
+        Page<Picture> picturePage = pictureService.page(new Page<Picture>(pageNum, pageSize), pictureService.getQueryWrapper(pictureQueryRequest));
+        // 写入缓存
+        String value = JSONUtil.toJsonStr(picturePage);
+        // 随机过期时间，防止穿透
+        int expireTime = 300 + RandomUtil.randomInt(0,300);
+        stringStringValueOperations.set(cacheKey, value, expireTime, TimeUnit.SECONDS);
         return ResultUtils.success(pictureService.getPictureVOPage(picturePage, request));
     }
 

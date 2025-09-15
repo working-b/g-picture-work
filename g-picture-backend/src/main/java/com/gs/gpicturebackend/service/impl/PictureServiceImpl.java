@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gs.gpicturebackend.exception.BusinessException;
 import com.gs.gpicturebackend.exception.ErrorCode;
 import com.gs.gpicturebackend.exception.ThrowUtils;
+import com.gs.gpicturebackend.manager.CosManager;
 import com.gs.gpicturebackend.manager.FileManager;
 import com.gs.gpicturebackend.manager.upload.FilePictureUpload;
 import com.gs.gpicturebackend.manager.upload.PictureUploadTemplate;
@@ -31,6 +32,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -64,6 +67,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private UserService userService;
+    @Autowired
+    private CosManager cosManager;
 
     @Override
     public PictureVO uploadPicture(Object inputSource, PictureUploadRequest request, User user) {
@@ -95,6 +100,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, prefix);
         // 数据库保存图片信息
         picture.setUrl(uploadPictureResult.getUrl());
+        picture.setThumbnailUrl(uploadPictureResult.getThumbnailUrl());
         picture.setPicFormat(uploadPictureResult.getPicFormat());
         picture.setPicSize(uploadPictureResult.getPicSize());
         picture.setPicScale(uploadPictureResult.getPicScale());
@@ -111,6 +117,30 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         boolean b = this.saveOrUpdate(picture);
         ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR, "数据库保存失败");
         return PictureVO.objToVo(picture);
+    }
+
+    @Async
+    @Override
+    public void clearPictureFile(Picture oldPicture) {
+        if (oldPicture == null){
+            return;
+        }
+        String url = oldPicture.getUrl();
+        // 判断当前图片文件是否被多个用户引用（此项目中不涉及，但是一些快传等公用软件中设计）
+        // 如果被多个用户引用，则不删除文件
+        Long count = this.lambdaQuery().eq(Picture::getUrl, url).count();
+        if (count > 1){
+            return;
+        }
+        // 删除原图
+        cosManager.deleteObject(url);
+
+        // 删除缩略图
+        String thumbnailUrl = oldPicture.getThumbnailUrl();
+        if (StrUtil.isNotBlank(thumbnailUrl)) {
+            cosManager.deleteObject(thumbnailUrl);
+        }
+
     }
 
     @Override

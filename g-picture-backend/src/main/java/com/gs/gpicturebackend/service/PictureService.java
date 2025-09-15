@@ -36,6 +36,8 @@ public interface PictureService extends IService<Picture> {
      */
     PictureVO uploadPicture(Object inputSource, PictureUploadRequest request, User user);
 
+    void clearPictureFile(Picture oldPicture);
+
     /**
      * 获取查询对象
      *

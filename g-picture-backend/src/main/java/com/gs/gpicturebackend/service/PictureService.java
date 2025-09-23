@@ -2,14 +2,13 @@ package com.gs.gpicturebackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.gs.gpicturebackend.model.dto.picture.PictureQueryRequest;
-import com.gs.gpicturebackend.model.dto.picture.PictureReviewRequest;
-import com.gs.gpicturebackend.model.dto.picture.PictureUploadByBatchRequest;
-import com.gs.gpicturebackend.model.dto.picture.PictureUploadRequest;
+import com.gs.gpicturebackend.common.DeleteRequest;
+import com.gs.gpicturebackend.model.dto.picture.*;
 import com.gs.gpicturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.gs.gpicturebackend.model.entity.User;
 import com.gs.gpicturebackend.model.vo.PictureVO;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
@@ -35,6 +34,21 @@ public interface PictureService extends IService<Picture> {
      * @return
      */
     PictureVO uploadPicture(Object inputSource, PictureUploadRequest request, User user);
+
+    /**
+     * 删除图片
+     * @param
+     * @param
+     * @return
+     */
+    void deletePicture(long pictureId, User loginUser) ;
+
+    /**
+     * 编辑图片
+     * @param pictureEditRequest
+     * @param loginUser
+     */
+    void editPicture(PictureEditRequest pictureEditRequest, User loginUser);
 
     void clearPictureFile(Picture oldPicture);
 
@@ -85,4 +99,11 @@ public interface PictureService extends IService<Picture> {
      * @return
      */
     Integer uploadPictureByBatch(PictureUploadByBatchRequest request, User user);
+
+    /**
+     * 校验空间图片权限
+     * @param loginUser
+     * @param picture
+     */
+    void checkPictureAuth(User loginUser, Picture picture);
 }

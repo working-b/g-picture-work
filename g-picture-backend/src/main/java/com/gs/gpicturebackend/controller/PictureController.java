@@ -2,7 +2,6 @@ package com.gs.gpicturebackend.controller;
 
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gs.gpicturebackend.annotation.AuthCheck;
@@ -15,11 +14,13 @@ import com.gs.gpicturebackend.exception.ErrorCode;
 import com.gs.gpicturebackend.exception.ThrowUtils;
 import com.gs.gpicturebackend.model.dto.picture.*;
 import com.gs.gpicturebackend.model.entity.Picture;
+import com.gs.gpicturebackend.model.entity.Space;
 import com.gs.gpicturebackend.model.entity.User;
 import com.gs.gpicturebackend.model.enums.PictureReviewStatusEnum;
 import com.gs.gpicturebackend.model.vo.PictureTagCategory;
 import com.gs.gpicturebackend.model.vo.PictureVO;
 import com.gs.gpicturebackend.service.PictureService;
+import com.gs.gpicturebackend.service.SpaceService;
 import com.gs.gpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +36,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -58,6 +58,8 @@ public class PictureController {
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
     private RedisTemplate<Object, Object> redisTemplate;
+    @Autowired
+    private SpaceService spaceService;
 
     @PostMapping(value = "/upload",headers = "content-type=multipart/form-data")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
@@ -92,20 +94,8 @@ public class PictureController {
     @PostMapping("/delete")
     public BaseResponse<Boolean> deletePicture(@RequestBody DeleteRequest deleteRequest,HttpServletRequest request){
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
-
         User loginUser = userService.getLoginUser(request);
-        // 查询图片是否存在
-        Picture byId = pictureService.getById(deleteRequest.getId());
-        ThrowUtils.throwIf(byId == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
-
-        // 判断是否为创建者或者管理员
-        if (!byId.getUserId().equals(loginUser.getId()) || !userService.isAdmin(loginUser)){
-            throw new BusinessException(ErrorCode.NOT_AUTH_ERROR);
-        }
-        boolean b = pictureService.removeById(deleteRequest.getId());
-        ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "删除失败");
-        // 删除图片
-        pictureService.clearPictureFile(byId);
+        pictureService.deletePicture(deleteRequest.getId(),loginUser);
         return ResultUtils.success(true);
     }
 
@@ -165,8 +155,12 @@ public class PictureController {
     public BaseResponse<PictureVO> getPictureVO(@RequestParam("id") Long id,HttpServletRequest request){
         ThrowUtils.throwIf(id == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
         Picture picture = pictureService.getById(id);
+        if (picture.getSpaceId() != null){
+            User loginUser = userService.getLoginUser(request);
+            pictureService.checkPictureAuth(loginUser,picture);
+        }
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
-        // 用户只能看到自己的非过审图片
+        // 用户只能看到自己的非过审图片，其他的只能看到过审的
         PictureReviewStatusEnum pictureReviewStatus = PictureReviewStatusEnum.getEnumByValue(picture.getReviewStatus());
         if (pictureReviewStatus != null && (!pictureReviewStatus.equals(PictureReviewStatusEnum.PASS))
                 && !picture.getUserId().equals(userService.getLoginUser(request).getId())){
@@ -204,8 +198,18 @@ public class PictureController {
         int pageSize = pictureQueryRequest.getPageSize();
         // 防爬虫
         ThrowUtils.throwIf(pageNum < 0 || pageSize > 20, ErrorCode.PARAMS_ERROR, "参数错误");
-        // 普通用户只能看到审核通过数据
-        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+        Long spaceId = pictureQueryRequest.getSpaceId();
+        if (spaceId == null) {
+            // 普通用户只能看到审核通过的公共图库
+            pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            pictureQueryRequest.setNullSpaceId(true);
+        } else {
+            // 私有空间
+            Space space = spaceService.getById(spaceId);
+            ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+            spaceService.checkSpaceAuth(userService.getLoginUser(request),space);
+        }
+
         Page<Picture> picturePage = pictureService.page(new Page<Picture>(pageNum, pageSize), pictureService.getQueryWrapper(pictureQueryRequest));
         return ResultUtils.success(pictureService.getPictureVOPage(picturePage, request));
     }
@@ -257,28 +261,7 @@ public class PictureController {
     @PostMapping("/edit")
     public BaseResponse<Boolean> editPicture(@RequestBody PictureEditRequest pictureEditRequest, HttpServletRequest request){
         ThrowUtils.throwIf(pictureEditRequest == null || pictureEditRequest.getId() == null, ErrorCode.PARAMS_ERROR, "参数不能为空");
-        // 获取图片
-        Picture byId = pictureService.getById(pictureEditRequest.getId());
-        ThrowUtils.throwIf(byId == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
-
-        // 获取用户,校验权限
-        User loginUser = userService.getLoginUser(request);
-        if (!byId.getUserId().equals(loginUser.getId()) || !userService.isAdmin(loginUser)){
-            throw new BusinessException(ErrorCode.NOT_AUTH_ERROR);
-        }
-        // 转换
-        Picture picture = new Picture();
-        BeanUtils.copyProperties(pictureEditRequest, picture);
-        picture.setTags(JSONUtil.toJsonStr(pictureEditRequest.getTags()));
-        picture.setEditTime(new Date());
-
-        // 校验图片
-        pictureService.validPicture(picture);
-        // 补充审核参数
-        pictureService.fillReviewParam(picture, loginUser);
-        // 更新
-        boolean b = pictureService.updateById(picture);
-        ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "更新失败");
+        pictureService.editPicture(pictureEditRequest, userService.getLoginUser(request));
         return ResultUtils.success(true);
     }
 

@@ -48,11 +48,11 @@ public class AuthInterceptor {
         // 用户没登录或者用户角色不存在
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
         UserRoleEnum userRole = UserRoleEnum.getEnumByValue(loginUser.getUserRole());
-        ThrowUtils.throwIf(userRole == null, ErrorCode.NOT_AUTH_ERROR);
+        ThrowUtils.throwIf(userRole == null, ErrorCode.NO_AUTH_ERROR);
 
         // 用户不是admin，但是要求是admin
         if (UserRoleEnum.ADMIN.getValue().equals(mustRole) && !UserRoleEnum.ADMIN.getValue().equals(userRole.getValue())) {
-            throw new BusinessException(ErrorCode.NOT_AUTH_ERROR, "用户权限不足");
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "用户权限不足");
         }
 
         return joinPoint.proceed();
